@@ -1,7 +1,10 @@
-import type { Player, Question } from '@/types/game';
+import { useState } from 'react';
+import type { Player, Question, CatInBagState } from '@/types/game';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Timer, X, Plus, Minus } from 'lucide-react';
+import MediaDisplay from './MediaDisplay';
+import AnswerDisplay from './AnswerDisplay';
 
 interface QuestionViewProps {
   question: Question;
@@ -16,6 +19,7 @@ interface QuestionViewProps {
   onDeductPoints: (playerId: number, points: number) => void;
   onClose: () => void;
   onPlayerSelect: (playerId: number) => void;
+  catInBagState: CatInBagState | null;
 }
 
 export default function QuestionView({
@@ -31,6 +35,7 @@ export default function QuestionView({
   onDeductPoints,
   onClose,
   onPlayerSelect,
+  catInBagState,
 }: QuestionViewProps) {
   const timerPercentage = (timerSeconds / 15) * 100;
   const timerColor =
@@ -40,10 +45,38 @@ export default function QuestionView({
       ? 'bg-yellow-500'
       : 'bg-red-500';
 
+  const isCatInBag = catInBagState?.isActive && catInBagState?.selectedPlayerId;
+  const selectedPlayer = isCatInBag 
+    ? players.find(p => p.id === catInBagState.selectedPlayerId)
+    : null;
+  const originalPlayer = catInBagState?.originalPlayerId
+    ? players.find(p => p.id === catInBagState.originalPlayerId)
+    : null;
+
+  const [showAnswer, setShowAnswer] = useState(false);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       <Card className="w-full max-w-5xl bg-gradient-to-br from-blue-900/90 to-indigo-900/90 backdrop-blur-sm border-4 border-blue-400/50">
         <CardContent className="p-8">
+          {/* Баннер Кота в мешке */}
+          {isCatInBag && selectedPlayer && originalPlayer && (
+            <div className="mb-6 p-6 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 border-4 border-amber-400 animate-pulse-glow">
+              <div className="flex items-center justify-center gap-4">
+                <div className="text-6xl animate-bounce">🐱</div>
+                <div className="text-center">
+                  <h3 className="text-3xl font-bold text-white mb-2">
+                    КОТ В МЕШКЕ!
+                  </h3>
+                  <p className="text-xl text-amber-100">
+                    {originalPlayer.name} передал вопрос игроку <span className="font-bold text-white">{selectedPlayer.name}</span>
+                  </p>
+                </div>
+                <div className="text-6xl animate-bounce" style={{ animationDelay: '0.5s' }}>🎁</div>
+              </div>
+            </div>
+          )}
+
           {/* Заголовок с закрытием */}
           <div className="flex justify-between items-center mb-8">
             <div className="text-3xl font-bold text-amber-400">
@@ -62,9 +95,14 @@ export default function QuestionView({
 
           {/* Текст вопроса */}
           <div className="bg-white/10 rounded-xl p-8 mb-8 border-2 border-blue-300/30">
-            <p className="text-3xl text-white text-center leading-relaxed">
+            <p className="text-3xl text-white text-center leading-relaxed mb-6">
               {question.text}
             </p>
+            {question.media && (
+              <div className="mt-6 flex justify-center">
+                <MediaDisplay media={question.media} className="max-w-4xl" />
+              </div>
+            )}
           </div>
 
           {/* Таймер */}
@@ -165,6 +203,13 @@ export default function QuestionView({
               </div>
             ))}
           </div>
+
+          {/* Показать ответ */}
+          <AnswerDisplay
+            answer={question.answer}
+            isVisible={showAnswer}
+            onToggle={() => setShowAnswer(!showAnswer)}
+          />
         </CardContent>
       </Card>
     </div>

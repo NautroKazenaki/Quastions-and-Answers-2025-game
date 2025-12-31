@@ -25,6 +25,21 @@ export default function BettingPhase({
     setCurrentBet(prev => ({ ...prev, [playerId]: value }));
   };
 
+  const handleSetMax = (playerId: number) => {
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+    setCurrentBet(prev => ({ ...prev, [playerId]: player.score.toString() }));
+  };
+
+  const handleAdd100 = (playerId: number) => {
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+    
+    const currentValue = parseInt(currentBet[playerId] || '0');
+    const newValue = Math.min(currentValue + 100, player.score);
+    setCurrentBet(prev => ({ ...prev, [playerId]: newValue.toString() }));
+  };
+
   const handleConfirmBet = (playerId: number) => {
     const betValue = parseInt(currentBet[playerId] || '0');
     const player = players.find(p => p.id === playerId);
@@ -93,7 +108,23 @@ export default function BettingPhase({
                       </div>
 
                       {!hasBet ? (
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              onClick={() => handleSetMax(player.id)}
+                              size="sm"
+                              className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+                            >
+                              MAX
+                            </Button>
+                            <Button
+                              onClick={() => handleAdd100(player.id)}
+                              size="sm"
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                            >
+                              +100
+                            </Button>
+                          </div>
                           <input
                             type="number"
                             min="1"

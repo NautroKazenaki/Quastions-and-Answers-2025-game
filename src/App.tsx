@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { GameState, Player, Theme, SuperGameState } from '@/types/game';
+import type { GameState, Player, Theme, SuperGameState, Answer, QuestionsData } from '@/types/game';
 import { getPointsForRound } from '@/types/game';
 import questionsData from '@/data/questions.json';
 import GameBoard from '@/components/GameBoard';
@@ -7,6 +7,7 @@ import PlayersPanel from '@/components/PlayersPanel';
 import QuestionView from '@/components/QuestionView';
 import SuperGame from '@/components/SuperGame';
 import SnowfallBackground from '@/components/SnowfallBackground';
+import CatInBagModal from '@/components/CatInBagModal';
 
 const STORAGE_KEY = 'new-year-quiz-state';
 
@@ -18,16 +19,66 @@ const initialPlayers: Player[] = [
   { id: 5, name: 'Максим', score: 0 },
 ];
 
+function markRandomCatsInBag(themes: Theme[], count: number) {
+  const allQuestions = themes.flatMap(theme => 
+    theme.questions.map(q => ({ theme, question: q }))
+  );
+  
+  // Перемешать и выбрать count случайных
+  const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+  shuffled.slice(0, count).forEach(({ question }) => {
+    question.isCatInBag = true;
+  });
+}
+
 function initializeThemes(): Theme[] {
-  return questionsData.themes.map((themeData) => ({
+  const data = questionsData as QuestionsData;
+  const themes = data.themes.map((themeData) => ({
     name: themeData.name,
     round: themeData.round,
-    questions: themeData.questions.map((text, index) => ({
-      id: `${themeData.name}-${index}`,
-      text,
-      answered: false,
-    })),
+    questions: themeData.questions.map((questionData, index) => {
+      const media = questionData.media 
+        ? {
+            type: questionData.media.type as 'image' | 'video' | null,
+            src: questionData.media.src as string | null
+          }
+        : undefined;
+
+      // answer теперь всегда есть - или строка, или объект
+      let answer: string | Answer;
+      if (typeof questionData.answer === 'string') {
+        answer = questionData.answer;
+      } else {
+        const answerMedia = questionData.answer?.media
+          ? {
+              type: questionData.answer.media.type as 'image' | 'video' | null,
+              src: questionData.answer.media.src as string | null
+            }
+          : undefined;
+        answer = {
+          text: questionData.answer.text,
+          media: answerMedia
+        };
+      }
+
+      return {
+        id: `${themeData.name}-${index}`,
+        text: questionData.text,
+        answered: false,
+        isCatInBag: false,
+        media,
+        answer,
+      };
+    }),
   }));
+
+  // Отметить 2 случайных вопроса в раунде 1
+  markRandomCatsInBag(themes.filter(t => t.round === 1), 2);
+  
+  // Отметить 2 случайных вопроса в раунде 2
+  markRandomCatsInBag(themes.filter(t => t.round === 2), 2);
+
+  return themes;
 }
 
 function loadGameState(): GameState {
@@ -49,6 +100,7 @@ function loadGameState(): GameState {
     timerActive: false,
     currentRound: 1,
     superGameState: null,
+    catInBagState: null,
   };
 }
 
@@ -96,8 +148,49 @@ function App() {
     const pointValues = getPointsForRound(theme.round);
     const pointValue = pointValues[questionIndex];
 
+    // Проверка на Кота в мешке
+    if (question.isCatInBag) {
+      setGameState(prev => ({
+        ...prev,
+        catInBagState: {
+          isActive: true,
+          originalPlayerId: prev.activePlayerId,
+          selectedPlayerId: null,
+          themeIndex,
+          questionIndex,
+          pointValue,
+        },
+      }));
+      // Показать модалку выбора игрока, не открывать вопрос пока
+      return;
+    }
+
     setGameState(prev => ({
       ...prev,
+      currentQuestion: {
+        themeIndex,
+        questionIndex,
+        pointValue,
+      },
+      timerSeconds: 15,
+      timerActive: false,
+    }));
+  };
+
+  const handleCatPlayerSelect = (playerId: number) => {
+    if (!gameState.catInBagState) return;
+
+    const { themeIndex, questionIndex, pointValue } = gameState.catInBagState;
+    if (themeIndex === null || questionIndex === null || pointValue === null) return;
+
+    // Установить выбранного игрока как активного и открыть вопрос
+    setGameState(prev => ({
+      ...prev,
+      activePlayerId: playerId,
+      catInBagState: {
+        ...prev.catInBagState!,
+        selectedPlayerId: playerId,
+      },
       currentQuestion: {
         themeIndex,
         questionIndex,
@@ -163,6 +256,7 @@ function App() {
         currentQuestion: null,
         timerActive: false,
         timerSeconds: 15,
+        catInBagState: null, // Сбросить состояние Кота в мешке
       }));
     }
   };
@@ -178,6 +272,7 @@ function App() {
         timerActive: false,
         currentRound: 1,
         superGameState: null,
+        catInBagState: null,
       };
       setGameState(newState);
     }
@@ -190,12 +285,47 @@ function App() {
       return;
     }
 
+    // Преобразуем темы супер игры с правильными типами
+    const data = questionsData as QuestionsData;
+    const superGameThemes = data.superGame.themes.map((theme) => {
+      const media = theme.media 
+        ? {
+            type: theme.media.type as 'image' | 'video' | null,
+            src: theme.media.src as string | null
+          }
+        : undefined;
+
+      // answer теперь всегда есть - или строка, или объект
+      let answer: string | Answer;
+      if (typeof theme.answer === 'string') {
+        answer = theme.answer;
+      } else {
+        const answerMedia = theme.answer?.media
+          ? {
+              type: theme.answer.media.type as 'image' | 'video' | null,
+              src: theme.answer.media.src as string | null
+            }
+          : undefined;
+        answer = {
+          text: theme.answer.text,
+          media: answerMedia
+        };
+      }
+
+      return {
+        name: theme.name,
+        question: theme.question,
+        media,
+        answer,
+      };
+    });
+
     setGameState(prev => ({
       ...prev,
       currentRound: 'super',
       superGameState: {
         phase: 'elimination',
-        themes: questionsData.superGame.themes,
+        themes: superGameThemes,
         eliminatedThemes: [],
         selectedTheme: null,
         bets: {},
@@ -266,6 +396,19 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-950 p-4 relative">
       <SnowfallBackground />
+      
+      {/* Модалка Кота в мешке */}
+      {gameState.catInBagState?.isActive && 
+       !gameState.currentQuestion && 
+       gameState.catInBagState.pointValue !== null && (
+        <CatInBagModal
+          players={gameState.players}
+          currentPlayerId={gameState.catInBagState.originalPlayerId}
+          pointValue={gameState.catInBagState.pointValue}
+          onSelectPlayer={handleCatPlayerSelect}
+        />
+      )}
+      
       <div className="max-w-[1800px] mx-auto relative z-10">
         {gameState.currentRound === 'super' && gameState.superGameState ? (
           <SuperGame
@@ -322,6 +465,7 @@ function App() {
             onDeductPoints={handleDeductPoints}
             onClose={handleCloseQuestion}
             onPlayerSelect={handlePlayerSelect}
+            catInBagState={gameState.catInBagState}
           />
         )}
       </div>

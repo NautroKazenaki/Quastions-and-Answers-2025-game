@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import type { Player, SuperGameTheme } from '@/types/game';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Check, X } from 'lucide-react';
+import MediaDisplay from './MediaDisplay';
+import AnswerDisplay from './AnswerDisplay';
 
 interface FinalAnswersProps {
   selectedTheme: SuperGameTheme;
@@ -22,6 +25,7 @@ export default function FinalAnswers({
 }: FinalAnswersProps) {
   const eligiblePlayers = players.filter(p => p.score > 0);
   const allAnswersMarked = eligiblePlayers.every(p => answers[p.id] !== null && answers[p.id] !== undefined);
+  const [showAnswer, setShowAnswer] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
@@ -38,9 +42,14 @@ export default function FinalAnswers({
 
           {/* Вопрос */}
           <div className="mb-8 p-8 rounded-xl bg-white/10 border-2 border-white/30">
-            <p className="text-3xl text-white text-center leading-relaxed">
+            <p className="text-3xl text-white text-center leading-relaxed mb-6">
               {selectedTheme.question}
             </p>
+            {selectedTheme.media && (
+              <div className="mt-6 flex justify-center">
+                <MediaDisplay media={selectedTheme.media} className="max-w-4xl" />
+              </div>
+            )}
           </div>
 
           <div className="mb-8 p-4 bg-white/10 rounded-lg text-white text-center">
@@ -130,6 +139,13 @@ export default function FinalAnswers({
               );
             })}
           </div>
+
+          {/* Показать ответ */}
+          <AnswerDisplay
+            answer={selectedTheme.answer}
+            isVisible={showAnswer}
+            onToggle={() => setShowAnswer(!showAnswer)}
+          />
 
           {/* Кнопка завершения */}
           {allAnswersMarked && (

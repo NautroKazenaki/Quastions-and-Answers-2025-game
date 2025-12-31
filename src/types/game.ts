@@ -4,10 +4,23 @@ export interface Player {
   score: number;
 }
 
+export interface MediaContent {
+  type: 'image' | 'video' | null;
+  src: string | null;
+}
+
+export interface Answer {
+  text: string;
+  media?: MediaContent;
+}
+
 export interface Question {
   id: string;
   text: string;
   answered: boolean;
+  isCatInBag?: boolean;
+  media?: MediaContent;
+  answer: string | Answer; // Обязательное поле, может быть строкой или объектом
 }
 
 export interface Theme {
@@ -22,6 +35,15 @@ export interface CurrentQuestion {
   pointValue: number;
 }
 
+export interface CatInBagState {
+  isActive: boolean;
+  originalPlayerId: number | null;
+  selectedPlayerId: number | null;
+  themeIndex: number | null;
+  questionIndex: number | null;
+  pointValue: number | null;
+}
+
 export interface GameState {
   themes: Theme[];
   players: Player[];
@@ -31,17 +53,26 @@ export interface GameState {
   timerActive: boolean;
   currentRound: 1 | 2 | 'super';
   superGameState: SuperGameState | null;
+  catInBagState: CatInBagState | null;
 }
 
 export interface ThemeData {
   name: string;
   round: number;
-  questions: string[];
+  questions: QuestionData[]; // Теперь только объекты
+}
+
+export interface QuestionData {
+  text: string;
+  media?: MediaContent;
+  answer: string | Answer; // Обязательное поле
 }
 
 export interface SuperGameTheme {
   name: string;
   question: string;
+  media?: MediaContent;
+  answer: string | Answer; // Обязательное поле
 }
 
 export interface SuperGameData {
